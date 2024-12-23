@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+import cors from "cors";
 import express, { json } from "express";
 
 import testRouter from "./src/routes/test.js";
@@ -8,6 +9,14 @@ import mongoose from "mongoose";
 
 const app = express();
 const port = 8080;
+
+app.use(
+  cors({
+    origin: "http://localhost:3000", // 허용할 도메인
+    methods: ["GET", "POST", "PUT", "DELETE"], // 허용할 HTTP 메서드
+    credentials: true, // 쿠키를 허용하려면 true로 설정
+  })
+);
 
 app.use(json());
 
