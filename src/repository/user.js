@@ -1,4 +1,4 @@
-import UserModel from "../models/user";
+import UserModel from "../models/user.js";
 
 // export const login = async (username, password) => {
 //   const user = await UserModel.findOne({ username: username }).lean();
@@ -10,7 +10,7 @@ import UserModel from "../models/user";
 //   return { username: user.username };
 // };
 
-export const login = async (username, password) => {
+const login = async (username, password) => {
   const user = await UserModel.findOne(
     {
       username, // find 조건
@@ -25,3 +25,5 @@ export const login = async (username, password) => {
 
   return user;
 };
+
+export default { login };

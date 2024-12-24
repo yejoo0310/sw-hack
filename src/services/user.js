@@ -1,6 +1,6 @@
 import UserRepository from "../repository/user.js";
 
-export const login = async (username, password) => {
+const login = async (username, password) => {
   const user = await UserRepository.login(username, password);
 
   if (!user) {
@@ -9,3 +9,5 @@ export const login = async (username, password) => {
 
   return user;
 };
+
+export default { login };
