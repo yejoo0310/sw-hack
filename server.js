@@ -5,6 +5,7 @@ import cors from "cors";
 import express, { json } from "express";
 
 import testRouter from "./src/routes/test.js";
+import authRouter from "./src/routes/auth.js";
 import mongoose from "mongoose";
 
 const app = express();
@@ -21,6 +22,7 @@ app.use(
 app.use(json());
 
 app.use("/api/test", testRouter);
+app.use("/api/auth", authRouter);
 
 mongoose.connect(process.env.MONGODB_URL).then(() => console.log("db 연결 됨"));
 
