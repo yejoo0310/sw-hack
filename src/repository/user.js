@@ -11,12 +11,6 @@ import UserModel from "../models/user.js";
 // };
 
 const login = async (username, password) => {
-  console.log("username", username);
-  console.log("password", password);
-
-  const a = await UserModel.find();
-  console.log(a);
-
   const user = await UserModel.findOne(
     {
       username, // find 조건
