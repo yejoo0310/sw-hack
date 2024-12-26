@@ -8,6 +8,7 @@ import testRouter from "./src/routes/test.js";
 import authRouter from "./src/routes/auth.js";
 import imageRouter from "./src/routes/image.js";
 import scoreRouter from "./src/routes/score.js";
+import fileRouter from "./src/routes/file.js";
 
 import errorHandler from "./src/middleware/errorHandler.js";
 import mongoose from "mongoose";
@@ -29,6 +30,8 @@ app.use("/api/test", testRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/image", imageRouter);
 app.use("/api/score", scoreRouter);
+app.use("/uploads", express.static("uploads")); // 업로드된 파일 제공
+app.use("/api/file", fileRouter);
 
 app.use(errorHandler);
 

@@ -1,8 +1,8 @@
-import ScoreModel from "../models/score.js";
 import fs from "fs";
 import csv from "csv-parser";
+import ScoreModel from "../models/score.js";
 
-// 점수 환산표 (이미지 참고)
+// 점수 환산표 (예제 참고)
 const scoreTable = {
   RC: [
     [100, 495],
@@ -89,68 +89,113 @@ const getScore = (correctCount, section) => {
   return 0;
 };
 
-// CSV 데이터를 읽고 가공하여 Score 모델에 저장
-const processCsvAndSaveToDB = async (filePath, target) => {
+// CSV 파일에서 점수를 계산하는 서비스
+const calcUserScore = async (filePath, target, solve_time) => {
+  if (!target) {
+    throw new Error("target 값은 필수입니다.");
+  }
+
+  try {
+    const questions = await parseCsvFile(filePath);
+
+    // 파트별 오답률 계산
+    const partLengths = [6, 25, 39, 30, 30, 16, 54];
+    const partAccuracy = [];
+    let startIdx = 0;
+
+    for (const length of partLengths) {
+      if (startIdx >= questions.length) break; // 데이터가 부족하면 종료
+      const partQuestions = questions.slice(startIdx, startIdx + length);
+      const partTotal = partQuestions.length;
+      const partCorrect = partQuestions.reduce((sum, q) => sum + q, 0);
+      const partErrorRate = 100 - ((partTotal - partCorrect) / partTotal) * 100;
+      partAccuracy.push(partErrorRate);
+      startIdx += length;
+    }
+
+    // RC와 LC 점수 계산
+    const rcQuestions = questions.slice(0, Math.min(100, questions.length));
+    const lcQuestions = questions.slice(100, questions.length);
+    const rcCorrect = rcQuestions.reduce((sum, q) => sum + q, 0);
+    const lcCorrect = lcQuestions.reduce((sum, q) => sum + q, 0);
+    const rcScore = getScore(rcCorrect, "RC");
+    const lcScore = getScore(lcCorrect, "LC");
+
+    const totalScore = rcScore + lcScore;
+    const overallErrorRate =
+      ((questions.length - rcCorrect - lcCorrect) / questions.length) * 100;
+    const accuracy = 100 - overallErrorRate;
+
+    const response = await fetch(
+      `http://172.16.25.130:8000/check_student_type?solve_time=${solve_time}&accuracy=${accuracy}`,
+      {
+        method: "post",
+      }
+    );
+
+    let review = "";
+    if (response.ok) {
+      review = await response.json();
+    }
+
+    // MongoDB에 저장
+    const score = new ScoreModel({
+      target,
+      actual: totalScore,
+      rcScore,
+      lcScore,
+      overallErrorRate,
+      partAccuracy,
+      questions,
+      solve_time,
+      accuracy,
+    });
+
+    await score.save();
+
+    return { score, review: review?.past_data }; // 저장된 Score 객체 반환
+  } catch (error) {
+    console.error("CSV 처리 중 오류:", error.message);
+    throw error;
+  }
+};
+
+// CSV 파일 파싱 함수
+const parseCsvFile = (filePath) => {
   return new Promise((resolve, reject) => {
+    const questionsData = [];
     fs.createReadStream(filePath)
       .pipe(csv())
-      .on("data", async (row) => {
-        const questions = Object.values(row).slice(1).map(Number);
-
-        if (questions.length > 200) {
-          console.error(`문항 수: ${questions.length}`); // 디버깅용 로그 추가
-          reject(new Error("CSV 파일의 문항 수는 정확히 200개여야 합니다."));
-          return;
-        }
-
-        // 파트별 문항 수
-        const partLengths = [6, 25, 39, 30, 30, 16, 54];
-        const partErrorRates = [];
-        let startIdx = 0;
-
-        // 각 파트별 오답률 계산
-        for (const length of partLengths) {
-          const partQuestions = questions.slice(startIdx, startIdx + length);
-          const partTotal = partQuestions.length;
-          const partCorrect = partQuestions.reduce((sum, q) => sum + q, 0);
-          const partErrorRate = ((partTotal - partCorrect) / partTotal) * 100;
-          partErrorRates.push(partErrorRate);
-          startIdx += length;
-        }
-
-        // RC와 LC 점수 계산
-        const rcQuestions = questions.slice(0, 100);
-        const lcQuestions = questions.slice(100);
-        const rcCorrect = rcQuestions.reduce((sum, q) => sum + q, 0);
-        const lcCorrect = lcQuestions.reduce((sum, q) => sum + q, 0);
-        const rcScore = getScore(rcCorrect, "RC");
-        const lcScore = getScore(lcCorrect, "LC");
-
-        // 전체 점수 및 오답률 계산
-        const totalScore = rcScore + lcScore;
-        const overallErrorRate = ((200 - rcCorrect - lcCorrect) / 200) * 100;
-
-        // Score 저장
-        const score = new ScoreModel({
-          target,
-          actual: totalScore,
-          rcScore,
-          lcScore,
-          overallErrorRate,
-          partErrorRates,
-          questions,
-        });
-
+      .on("data", (row) => {
         try {
-          await score.save();
-          resolve(score);
+          const rawData = Object.values(row)[0];
+          const questions = rawData
+            .trim()
+            .split(/\s+/)
+            .filter((value) => value !== "")
+            .map(Number);
+
+          //   if (questions.length !== 200) {
+          //     // 데이터 길이가 200개가 아닌 경우 에러 반환
+          //     reject(new Error("CSV 파일의 문항 수는 정확히 200개여야 합니다."));
+          //   }
+
+          questionsData.push(questions);
         } catch (error) {
           reject(error);
         }
       })
-      .on("end", () => console.log("CSV 데이터 처리 완료"))
-      .on("error", (error) => reject(error));
+      .on("end", () => {
+        if (questionsData.length === 0) {
+          reject(new Error("CSV 파일에 유효한 데이터가 없습니다."));
+        } else {
+          resolve(questionsData[0]); // 첫 번째 데이터만 반환
+        }
+      })
+      .on("error", (error) => {
+        reject(error);
+      });
   });
 };
 
-export default { processCsvAndSaveToDB };
+export default { calcUserScore };

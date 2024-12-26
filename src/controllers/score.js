@@ -1,21 +1,22 @@
 import ScoreService from "../services/score.js";
 
-const uploadScore = async (req, res) => {
-  const filePath = req.file.path;
-  const target = req.body.target;
+const calculateScore = async (req, res) => {
+  const { target, solve_time } = req.body; // form-data에서 target 값 추출
+  const filePath = req.file?.path;
 
   try {
-    const savedScore = await ScoreService.processCsvAndSaveToDB(
+    const result = await ScoreService.calcUserScore(
       filePath,
-      target
+      target,
+      solve_time
     );
     res.status(200).json({
-      message: "점수 계산 및 저장 성공",
-      data: savedScore,
+      score: result.score,
+      review: result.review,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-export default { uploadScore };
+export default { calculateScore };
