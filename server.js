@@ -7,6 +7,7 @@ import express, { json } from "express";
 import testRouter from "./src/routes/test.js";
 import authRouter from "./src/routes/auth.js";
 import imageRouter from "./src/routes/image.js";
+import scoreRouter from "./src/routes/score.js";
 
 import errorHandler from "./src/middleware/errorHandler.js";
 import mongoose from "mongoose";
@@ -27,6 +28,7 @@ app.use(json());
 app.use("/api/test", testRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/image", imageRouter);
+app.use("/api/score", scoreRouter);
 
 app.use(errorHandler);
 
